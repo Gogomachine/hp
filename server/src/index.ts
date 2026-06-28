@@ -1,11 +1,13 @@
 // Точка входа сервера Hunchpoint.
-// Поднимает Fastify (/health), WebSocket-сервер и Telegram-бота.
+// Поднимает Fastify (/health + роуты турнира), WebSocket-сервер и Telegram-бота.
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { checkDbConnection, closePool } from './db/index.js';
-import { startWebSocketServer, activeTournamentCount } from './ws/index.js';
+import { createWsServer } from './ws/index.js';
+import { activeRoomCount } from './ws/broadcaster.js';
+import { tournamentRoutes } from './routes/tournament.js';
 import { startBot } from './telegram/bot.js';
 
 async function main(): Promise<void> {
@@ -21,17 +23,18 @@ async function main(): Promise<void> {
       ok: dbOk,
       db: dbOk ? 'connected' : 'disconnected',
       ws: 'running',
-      tournaments_active: activeTournamentCount(),
+      tournaments_active: activeRoomCount(),
     };
   });
 
-  const wss = startWebSocketServer(config.wsPort, config.botToken);
+  await app.register(tournamentRoutes, { botToken: config.botToken });
+
+  const wss = createWsServer(config.wsPort, config.botToken);
   const bot = startBot(config.botToken, config.webappUrl);
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
   console.log(`[http] listening on :${config.port}`);
 
-  // Graceful shutdown.
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[shutdown] received ${signal}`);
     try {

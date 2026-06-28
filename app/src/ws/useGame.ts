@@ -2,19 +2,21 @@
 // Обрабатывает события контракта (server→client) и локальные действия игрока.
 // Поддерживает demo-режим: рендерит экран раунда без живого бэкенда.
 
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { GameSocket } from './client.js';
 import type {
   ConnectionStatus,
   FinalLeaderboardEntry,
+  LeaderboardEntry,
   Player,
+  PlayerResult,
   Question,
   ServerEvent,
 } from './types.js';
 import { getInitData } from '../telegram.js';
 import { demoState } from './demo.js';
 
-export type Phase = 'connecting' | 'lobby' | 'round' | 'final';
+export type Phase = 'connecting' | 'lobby' | 'round' | 'roundResult' | 'final';
 
 export interface RoundResult {
   points: number;
@@ -25,17 +27,25 @@ export interface RoundResult {
 export interface RoundState {
   number: number;
   roundCount: number;
-  // ВНИМАНИЕ: контракт round:start отдаёт номер раунда, но answer требует round_id.
-  // До устранения этого пробела на бэкенде используем номер как fallback.
   roundId: number | null;
   question: Question;
   durationSec: number;
-  startedAt: number; // ms, момент получения round:start
+  startedAt: number; // ms (серверный started_at)
   opponentsAnswered: Set<number>;
   myValue: number;
   submitted: boolean;
-  result: RoundResult | null;
+  result: RoundResult | null; // используется demo-режимом для inline-показа
   crowdRevealed: boolean;
+}
+
+export interface RoundResultState {
+  question: Question;
+  correctAnswer: number;
+  unit: string;
+  sourceUrl: string;
+  myValue: number | null;
+  playerResults: PlayerResult[];
+  leaderboard: LeaderboardEntry[];
 }
 
 export interface GameState {
@@ -45,6 +55,7 @@ export interface GameState {
   players: Player[];
   totalScore: number;
   round: RoundState | null;
+  roundResult: RoundResultState | null;
   finalLeaderboard: FinalLeaderboardEntry[] | null;
   lastError: string | null;
 }
@@ -86,20 +97,29 @@ function reducer(state: GameState, action: Action): GameState {
 
 function applyServerEvent(state: GameState, event: ServerEvent): GameState {
   switch (event.event) {
-    case 'tournament:start':
-      return { ...state, players: event.players, phase: 'lobby' };
+    case 'joined':
+      return state;
 
-    case 'round:start':
+    case 'tournament:start':
+      return {
+        ...state,
+        players: event.players.map((p) => ({ ...p, total_score: 0 })),
+        phase: 'lobby',
+      };
+
+    case 'round:start': {
+      const startedAt = Date.parse(event.started_at);
       return {
         ...state,
         phase: 'round',
+        roundResult: null,
         round: {
           number: event.round,
           roundCount: 6,
-          roundId: null,
+          roundId: event.round_id,
           question: event.question,
           durationSec: event.duration,
-          startedAt: Date.now(),
+          startedAt: Number.isNaN(startedAt) ? Date.now() : startedAt,
           opponentsAnswered: new Set<number>(),
           myValue: midpoint(event.question),
           submitted: false,
@@ -107,6 +127,7 @@ function applyServerEvent(state: GameState, event: ServerEvent): GameState {
           crowdRevealed: false,
         },
       };
+    }
 
     case 'player:answered': {
       if (state.round === null || event.telegram_id === state.myTelegramId) {
@@ -118,38 +139,27 @@ function applyServerEvent(state: GameState, event: ServerEvent): GameState {
     }
 
     case 'round:end': {
-      if (state.round === null) {
-        return state;
-      }
-      const mine = event.player_results.find(
-        (r) => r.telegram_id === state.myTelegramId,
-      );
+      const question = state.round?.question ?? null;
       const me = event.leaderboard.find(
         (l) => l.telegram_id === state.myTelegramId,
       );
-      const opponentsAnswered = new Set(
-        event.player_results
-          .map((r) => r.telegram_id)
-          .filter((id) => id !== state.myTelegramId),
-      );
       return {
         ...state,
+        phase: 'roundResult',
         totalScore: me?.total_score ?? state.totalScore,
         players: mergeScores(state.players, event.leaderboard),
-        round: {
-          ...state.round,
-          submitted: true,
-          crowdRevealed: true,
-          opponentsAnswered,
-          result:
-            mine === undefined
-              ? null
-              : {
-                  points: mine.points,
-                  errorPct: mine.error_pct,
-                  correctAnswer: event.correct_answer,
-                },
-        },
+        roundResult:
+          question === null
+            ? null
+            : {
+                question,
+                correctAnswer: event.correct_answer,
+                unit: event.unit,
+                sourceUrl: event.source_url,
+                myValue: state.round?.myValue ?? null,
+                playerResults: event.player_results,
+                leaderboard: event.leaderboard,
+              },
       };
     }
 
@@ -169,7 +179,7 @@ function applyServerEvent(state: GameState, event: ServerEvent): GameState {
 
 function mergeScores(
   players: Player[],
-  leaderboard: { telegram_id: number; total_score: number }[],
+  leaderboard: LeaderboardEntry[],
 ): Player[] {
   return players.map((p) => {
     const entry = leaderboard.find((l) => l.telegram_id === p.telegram_id);
@@ -200,6 +210,7 @@ function initialState(opts: UseGameOptions): GameState {
     players: [],
     totalScore: 0,
     round: null,
+    roundResult: null,
     finalLeaderboard: null,
     lastError: null,
   };
@@ -207,12 +218,14 @@ function initialState(opts: UseGameOptions): GameState {
 
 export function useGame(opts: UseGameOptions): GameApi {
   const [state, dispatch] = useReducer(reducer, opts, initialState);
+  const socketRef = useRef<GameSocket | null>(null);
 
   useEffect(() => {
     if (opts.demo) {
       return;
     }
     const socket = new GameSocket(opts.wsUrl);
+    socketRef.current = socket;
     const offEvent = socket.onEvent((event) => dispatch({ type: 'server', event }));
     const offStatus = socket.onStatus((status) => {
       dispatch({ type: 'status', status });
@@ -230,6 +243,7 @@ export function useGame(opts: UseGameOptions): GameApi {
       offEvent();
       offStatus();
       socket.close();
+      socketRef.current = null;
     };
   }, [opts.demo, opts.wsUrl, opts.tournamentId, opts.myTelegramId]);
 
@@ -237,7 +251,19 @@ export function useGame(opts: UseGameOptions): GameApi {
     () => ({
       ...state,
       setValue: (value: number) => dispatch({ type: 'setValue', value }),
-      submit: () => dispatch({ type: 'submit' }),
+      submit: () => {
+        if (state.round !== null && !state.round.submitted) {
+          const socket = socketRef.current;
+          if (socket !== null && state.round.roundId !== null) {
+            socket.send({
+              event: 'answer',
+              round_id: state.round.roundId,
+              value: state.round.myValue,
+            });
+          }
+          dispatch({ type: 'submit' });
+        }
+      },
     }),
     [state],
   );

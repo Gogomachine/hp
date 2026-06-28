@@ -5,6 +5,10 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+// BIGINT (int8, OID 20) по умолчанию возвращается строкой. Telegram-id влезает
+// в безопасный диапазон JS, поэтому парсим в number — иначе сравнения сломаются.
+pg.types.setTypeParser(20, (value: string) => Number.parseInt(value, 10));
+
 let pool: pg.Pool | null = null;
 
 export function getPool(): pg.Pool {

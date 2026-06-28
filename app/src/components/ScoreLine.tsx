@@ -5,7 +5,7 @@ interface ScoreLineProps {
   rank: number;
   username: string | null;
   score: number;
-  payout?: number; // TON, опционально (финал)
+  payoutLabel?: string; // напр. «доля 60%» (финал)
   highlight?: boolean;
 }
 
@@ -15,7 +15,7 @@ export function ScoreLine({
   rank,
   username,
   score,
-  payout,
+  payoutLabel,
   highlight = false,
 }: ScoreLineProps) {
   return (
@@ -28,8 +28,8 @@ export function ScoreLine({
         {initials(username)}
       </span>
       <span className={styles.name}>{username ?? 'игрок'}</span>
-      {payout !== undefined && payout > 0 && (
-        <span className={styles.payout}>+{payout} TON</span>
+      {payoutLabel !== undefined && (
+        <span className={styles.payout}>{payoutLabel}</span>
       )}
       <span className={styles.score}>{score}</span>
     </div>

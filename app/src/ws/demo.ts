@@ -43,6 +43,7 @@ export function demoState(myTelegramId: number): GameState {
       result: { points: 174, errorPct: 0.06, correctAnswer: 8 },
       crowdRevealed: false,
     },
+    roundResult: null,
     finalLeaderboard: null,
     lastError: null,
   };

@@ -34,12 +34,26 @@ export interface PlayerResult {
 // ── Сервер → Клиент ────────────────────────────────────────────────
 
 export type ServerEvent =
-  | { event: 'tournament:start'; players: Player[]; round_count: 6 }
-  | { event: 'round:start'; round: number; question: Question; duration: number }
+  | { event: 'joined'; tournament_id: number }
+  | {
+      event: 'tournament:start';
+      players: Array<{ telegram_id: number; username: string | null }>;
+      round_count: number;
+    }
+  | {
+      event: 'round:start';
+      round: number;
+      round_id: number;
+      question: Question;
+      duration: number;
+      started_at: string; // ISO
+    }
   | { event: 'player:answered'; telegram_id: number }
   | {
       event: 'round:end';
       correct_answer: number;
+      unit: string;
+      source_url: string;
       player_results: PlayerResult[];
       leaderboard: LeaderboardEntry[];
     }
