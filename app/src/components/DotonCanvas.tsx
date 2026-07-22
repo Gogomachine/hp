@@ -5,7 +5,7 @@ const CONFIG = {
   COLS: 5,
   DOT_RADIUS: 28,
   GAP: 14,
-  COLORS: ['#ea6b6b', '#ffa8a8', '#8b9bff', '#6ba89b'],
+  COLORS: ['#ea6b6b', '#ffa8a8', '#8b9bff', '#6ba89b'] as const,
   TOUCH_RADIUS_MULTIPLIER: 1.6,
   MAX_PARTICLES: 300,
 };
@@ -70,6 +70,15 @@ interface GameInternals {
   colorRGB: Record<string, number[]>;
 }
 
+// Safe accessors for noUncheckedIndexedAccess
+function gridAt(s: GameInternals, r: number, c: number): Dot {
+  return s.grid[r]![c]!;
+}
+
+function posAt(s: GameInternals, r: number, c: number): Pos {
+  return s.layoutCache[r]![c]!;
+}
+
 interface Props {
   seed: number;
   onScoreChange: (score: number) => void;
@@ -128,9 +137,12 @@ export function DotonCanvas({ seed, onScoreChange, disabled }: Props) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const clientX = 'touches' in e ? e.touches[0]!.clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0]!.clientY : e.clientY;
-      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+      if ('touches' in e) {
+        const touch = e.touches[0];
+        if (!touch) return { x: 0, y: 0 };
+        return { x: (touch.clientX - rect.left) * scaleX, y: (touch.clientY - rect.top) * scaleY };
+      }
+      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
     };
 
     const nearestCell = (p: Pos, isTouch = false): Cell | null => {
@@ -139,9 +151,9 @@ export function DotonCanvas({ seed, onScoreChange, disabled }: Props) {
       const hitRadius = isTouch ? CONFIG.DOT_RADIUS * CONFIG.TOUCH_RADIUS_MULTIPLIER : CONFIG.DOT_RADIUS;
       for (let r = 0; r < CONFIG.ROWS; r++) {
         for (let c = 0; c < CONFIG.COLS; c++) {
-          const cellPos = s.layoutCache[r]![c]!;
-          const dot = s.grid[r]![c]!;
-          const d = Math.hypot(p.x - cellPos.x, p.y - (cellPos.y + dot.y));
+          const cp = posAt(s, r, c);
+          const dot = gridAt(s, r, c);
+          const d = Math.hypot(p.x - cp.x, p.y - (cp.y + dot.y));
           if (d < hitRadius && d < minDist) {
             minDist = d;
             nearest = { r, c };
@@ -179,10 +191,11 @@ export function DotonCanvas({ seed, onScoreChange, disabled }: Props) {
       const isTouch = 'touches' in e;
       const cell = nearestCell(p, isTouch);
       if (cell && s.chain.length > 0) {
-        const last = s.chain[s.chain.length - 1]!;
+        const last = s.chain[s.chain.length - 1];
         if (
+          last &&
           neighbors(last, cell) &&
-          s.grid[cell.r]![cell.c]!.color === s.grid[last.r]![last.c]!.color &&
+          gridAt(s, cell.r, cell.c).color === gridAt(s, last.r, last.c).color &&
           !s.chainSet.has(`${cell.r},${cell.c}`)
         ) {
           s.chain.push(cell);
@@ -277,11 +290,11 @@ function fillGrid(s: GameInternals) {
   const hasPair = (): boolean => {
     for (let r = 0; r < CONFIG.ROWS; r++) {
       for (let c = 0; c < CONFIG.COLS; c++) {
-        const col = s.grid[r]![c]!.color;
-        if (r + 1 < CONFIG.ROWS && s.grid[r + 1]![c]!.color === col) return true;
-        if (c + 1 < CONFIG.COLS && s.grid[r]![c + 1]!.color === col) return true;
-        if (r + 1 < CONFIG.ROWS && c + 1 < CONFIG.COLS && s.grid[r + 1]![c + 1]!.color === col) return true;
-        if (r + 1 < CONFIG.ROWS && c - 1 >= 0 && s.grid[r + 1]![c - 1]!.color === col) return true;
+        const col = gridAt(s, r, c).color;
+        if (r + 1 < CONFIG.ROWS && gridAt(s, r + 1, c).color === col) return true;
+        if (c + 1 < CONFIG.COLS && gridAt(s, r, c + 1).color === col) return true;
+        if (r + 1 < CONFIG.ROWS && c + 1 < CONFIG.COLS && gridAt(s, r + 1, c + 1).color === col) return true;
+        if (r + 1 < CONFIG.ROWS && c - 1 >= 0 && gridAt(s, r + 1, c - 1).color === col) return true;
       }
     }
     return false;
@@ -321,18 +334,19 @@ function processChain(s: GameInternals, onScoreChange: (score: number) => void) 
   }
 
   for (const c of s.chain) {
-    const cellPos = s.layoutCache[c.r]![c.c]!;
-    const color = CONFIG.COLORS[s.grid[c.r]![c.c]!.color]!;
-    const rgb = s.colorRGB[color];
+    const p = posAt(s, c.r, c.c);
+    const colorStr = CONFIG.COLORS[gridAt(s, c.r, c.c).color];
+    if (!colorStr) continue;
+    const rgb = s.colorRGB[colorStr];
     if (!rgb) continue;
     const count = Math.min(chainLength + 5, 15);
     for (let i = 0; i < count; i++) {
       s.particles.push({
-        x: cellPos.x + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
-        y: cellPos.y + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
+        x: p.x + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
+        y: p.y + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
         vx: (Math.random() - 0.5) * 3,
         vy: (Math.random() - 0.5) * 3 - 1,
-        r: rgb[0]!, g: rgb[1]!, b: rgb[2]!,
+        r: rgb[0] ?? 0, g: rgb[1] ?? 0, b: rgb[2] ?? 0,
         life: 1,
         size: Math.random() * 3 + 2,
       });
@@ -346,17 +360,18 @@ function processChain(s: GameInternals, onScoreChange: (score: number) => void) 
   if (explosion) {
     for (let r = 0; r < CONFIG.ROWS; r++) {
       for (let c = 0; c < CONFIG.COLS; c++) {
-        const cellPos = s.layoutCache[r]![c]!;
-        const color = CONFIG.COLORS[s.grid[r]![c]!.color]!;
-        const rgb = s.colorRGB[color];
+        const p = posAt(s, r, c);
+        const colorStr = CONFIG.COLORS[gridAt(s, r, c).color];
+        if (!colorStr) continue;
+        const rgb = s.colorRGB[colorStr];
         if (!rgb) continue;
         for (let i = 0; i < 5; i++) {
           s.particles.push({
-            x: cellPos.x + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
-            y: cellPos.y + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
+            x: p.x + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
+            y: p.y + (Math.random() - 0.5) * CONFIG.DOT_RADIUS,
             vx: (Math.random() - 0.5) * 4,
             vy: (Math.random() - 0.5) * 4 - 1,
-            r: rgb[0]!, g: rgb[1]!, b: rgb[2]!,
+            r: rgb[0] ?? 0, g: rgb[1] ?? 0, b: rgb[2] ?? 0,
             life: 1,
             size: Math.random() * 3 + 2,
           });
@@ -366,7 +381,7 @@ function processChain(s: GameInternals, onScoreChange: (score: number) => void) 
     fillGrid(s);
   } else {
     for (const c of s.chain) {
-      s.grid[c.r]![c.c]!.color = Math.floor(s.random() * CONFIG.COLORS.length);
+      gridAt(s, c.r, c.c).color = Math.floor(s.random() * CONFIG.COLORS.length);
     }
   }
 
@@ -378,14 +393,13 @@ function draw(canvas: HTMLCanvasElement, s: GameInternals) {
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx || !s.layoutCache.length || !s.grid.length) return;
 
-  const pos = s.layoutCache;
-
   ctx.fillStyle = '#12182b';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Chain line
   if (s.chain.length > 0) {
-    const first = s.chain[0]!;
-    const firstColor = CONFIG.COLORS[s.grid[first.r]![first.c]!.color]!;
+    const firstCell = s.chain[0]!;
+    const firstColor = CONFIG.COLORS[gridAt(s, firstCell.r, firstCell.c).color] ?? '#fff';
     ctx.globalAlpha = 0.4;
     ctx.strokeStyle = firstColor;
     ctx.lineWidth = 10;
@@ -395,9 +409,9 @@ function draw(canvas: HTMLCanvasElement, s: GameInternals) {
     ctx.shadowColor = firstColor;
     ctx.beginPath();
     for (let i = 0; i < s.chain.length; i++) {
-      const ci = s.chain[i]!;
-      const p = pos[ci.r]![ci.c]!;
-      const dot = s.grid[ci.r]![ci.c]!;
+      const cell = s.chain[i]!;
+      const p = posAt(s, cell.r, cell.c);
+      const dot = gridAt(s, cell.r, cell.c);
       if (i === 0) ctx.moveTo(p.x, p.y + dot.y);
       else ctx.lineTo(p.x, p.y + dot.y);
     }
@@ -409,37 +423,43 @@ function draw(canvas: HTMLCanvasElement, s: GameInternals) {
     ctx.stroke();
   }
 
+  // Dot shadows
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
   for (let r = 0; r < CONFIG.ROWS; r++) {
     for (let c = 0; c < CONFIG.COLS; c++) {
-      const p = pos[r]![c]!;
-      const dot = s.grid[r]![c]!;
+      const p = posAt(s, r, c);
+      const dot = gridAt(s, r, c);
       ctx.moveTo(p.x + 2 + CONFIG.DOT_RADIUS, p.y + dot.y + 3);
       ctx.arc(p.x + 2, p.y + dot.y + 3, CONFIG.DOT_RADIUS, 0, Math.PI * 2);
     }
   }
   ctx.fill();
 
+  // Dots
   for (let r = 0; r < CONFIG.ROWS; r++) {
     for (let c = 0; c < CONFIG.COLS; c++) {
-      const d = s.grid[r]![c]!;
-      const p = pos[r]![c]!;
-      ctx.fillStyle = CONFIG.COLORS[d.color]!;
+      const d = gridAt(s, r, c);
+      const p = posAt(s, r, c);
+      ctx.fillStyle = CONFIG.COLORS[d.color] ?? '#fff';
       ctx.beginPath();
       ctx.arc(p.x, p.y + d.y, CONFIG.DOT_RADIUS, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
+  // Selection rings
   if (s.chainSet.size > 0) {
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 4;
     ctx.beginPath();
     s.chainSet.forEach(key => {
-      const [r, c] = key.split(',').map(Number);
-      const p = pos[r!]![c!]!;
-      const dot = s.grid[r!]![c!]!;
+      const parts = key.split(',');
+      const r = Number(parts[0]);
+      const c = Number(parts[1]);
+      if (r >= CONFIG.ROWS || c >= CONFIG.COLS) return;
+      const p = posAt(s, r, c);
+      const dot = gridAt(s, r, c);
       ctx.moveTo(p.x + CONFIG.DOT_RADIUS + 5, p.y + dot.y);
       ctx.arc(p.x, p.y + dot.y, CONFIG.DOT_RADIUS + 5, 0, Math.PI * 2);
     });
