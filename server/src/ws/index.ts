@@ -1,16 +1,15 @@
 // WebSocket-сервер: приём соединений, ping/pong, диспетчеризация в handlers.
-// Комнаты и рассылка живут в broadcaster.ts.
+// Для Doton — дуэли, без комнат. Прямое общение через gameLoop.
 
 import { WebSocketServer, WebSocket } from 'ws';
-import type { ClientMessage } from './events.js';
-import { removeClient, sendTo } from './broadcaster.js';
-import { handleAnswer, handleJoin, handlePing } from './handlers.js';
+import type { ClientEvent } from './events.js';
+import { handleMessage, handleClose } from './handlers.js';
 
 const PING_INTERVAL_MS = 30_000;
 
 const alive = new WeakMap<WebSocket, boolean>();
 
-function parseMessage(raw: string): ClientMessage | null {
+function parseMessage(raw: string): ClientEvent | null {
   try {
     const obj = JSON.parse(raw) as unknown;
     if (
@@ -19,7 +18,7 @@ function parseMessage(raw: string): ClientMessage | null {
       'event' in obj &&
       typeof (obj as { event: unknown }).event === 'string'
     ) {
-      return obj as ClientMessage;
+      return obj as ClientEvent;
     }
     return null;
   } catch {
@@ -27,27 +26,9 @@ function parseMessage(raw: string): ClientMessage | null {
   }
 }
 
-async function dispatch(
-  ws: WebSocket,
-  msg: ClientMessage,
-  botToken: string,
-): Promise<void> {
-  switch (msg.event) {
-    case 'ping':
-      handlePing(ws);
-      break;
-    case 'join':
-      await handleJoin(ws, msg, botToken);
-      break;
-    case 'answer':
-      await handleAnswer(ws, msg);
-      break;
-    default:
-      sendTo(ws, {
-        event: 'error',
-        code: 'UNKNOWN_EVENT',
-        message: 'Unknown event',
-      });
+function send(ws: WebSocket, data: unknown): void {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(data));
   }
 }
 
@@ -61,23 +42,23 @@ export function createWsServer(port: number, botToken: string): WebSocketServer 
     ws.on('message', (raw) => {
       const msg = parseMessage(raw.toString());
       if (msg === null) {
-        sendTo(ws, {
+        send(ws, {
           event: 'error',
           code: 'PARSE_ERROR',
           message: 'Invalid JSON',
         });
         return;
       }
-      dispatch(ws, msg, botToken).catch((err: unknown) => {
+      try {
+        handleMessage(ws, msg, botToken);
+      } catch (err: unknown) {
         console.error('[ws] dispatch error', err);
-        sendTo(ws, { event: 'error', code: 'INTERNAL', message: 'Internal error' });
-      });
+        send(ws, { event: 'error', code: 'INTERNAL', message: 'Internal error' });
+      }
     });
 
     ws.on('close', () => {
-      // При дисконнекте просто убираем из комнаты — игра продолжается, за
-      // текущий раунд игрок получит 0 (ответ не записан).
-      removeClient(ws);
+      handleClose(ws);
       alive.delete(ws);
     });
 

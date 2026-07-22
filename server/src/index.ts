@@ -1,12 +1,13 @@
-// Точка входа сервера Hunchpoint.
-// Поднимает Fastify (/health + роуты турнира), WebSocket-сервер и Telegram-бота.
+// Точка входа сервера Doton.
+// Поднимает Fastify (/health), WebSocket-сервер и Telegram-бота.
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { checkDbConnection, closePool } from './db/index.js';
 import { createWsServer } from './ws/index.js';
-import { activeRoomCount } from './ws/broadcaster.js';
+import { getActiveDuelCount } from './game/gameLoop.js';
+import { getQueueSize } from './game/matchmaking.js';
 import { tournamentRoutes } from './routes/tournament.js';
 import { startBot } from './telegram/bot.js';
 
@@ -16,18 +17,19 @@ async function main(): Promise<void> {
   const app = Fastify({ logger: true });
   await app.register(cors, { origin: true });
 
-  // Здоровье системы. Формат: {"ok":true,"db":"connected","ws":"running",...}
+  // Здоровье системы.
   app.get('/health', async () => {
     const dbOk = await checkDbConnection();
     return {
       ok: dbOk,
       db: dbOk ? 'connected' : 'disconnected',
       ws: 'running',
-      tournaments_active: activeRoomCount(),
+      duels_active: getActiveDuelCount(),
+      queue_size: getQueueSize(),
     };
   });
 
-  await app.register(tournamentRoutes, { botToken: config.botToken });
+  await app.register(tournamentRoutes);
 
   const wss = createWsServer(config.wsPort, config.botToken);
   const bot = startBot(config.botToken, config.webappUrl);

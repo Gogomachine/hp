@@ -1,32 +1,25 @@
-// Типы строк БД и игровых сущностей.
+// Doton duel types (simplified from tournament-based types).
 
-import type { ScoreCurve } from './scoring.js';
-
-export interface QuestionRow {
+export interface DuelRow {
   id: number;
-  text: string;
-  text_en: string | null;
-  category: string;
-  answer: number;
-  unit: string;
-  range_min: number;
-  range_max: number;
-  score_curve: ScoreCurve;
-  tolerance: number | null;
-  max_points: number;
-  difficulty: number;
-  source_url: string;
+  player1_tg_id: number;
+  player1_name: string | null;
+  player2_tg_id: number;
+  player2_name: string | null;
+  player1_score: number;
+  player2_score: number;
+  winner_tg_id: number | null;
+  seed: number;
+  duration: number;
+  started_at: string;
+  finished_at: string | null;
 }
 
 export interface PlayerRow {
-  id: number;
   telegram_id: number;
   username: string | null;
+  games_played: number;
+  games_won: number;
+  best_score: number;
   total_score: number;
-}
-
-export interface LeaderboardRow {
-  telegram_id: number;
-  total_score: number;
-  rank: number;
 }

@@ -1,65 +1,85 @@
-// Контракт WebSocket-событий. Единый источник правды для сообщений
-// сервер↔клиент (CLAUDE.md + фаза 2).
-
-export interface PlayerInfo {
-  telegram_id: number;
-  username: string | null;
-}
-
-export interface QuestionPayload {
-  text: string;
-  unit: string;
-  range_min: number;
-  range_max: number;
-  category: string;
-}
-
-export interface PlayerResultPayload {
-  telegram_id: number;
-  value: number;
-  points: number;
-  error_pct: number;
-}
-
-export interface LeaderboardPayload {
-  telegram_id: number;
-  total_score: number;
-  rank: number;
-}
-
-export interface FinalLeaderboardPayload extends LeaderboardPayload {
-  payout: number;
-}
-
-// ── Сервер → Клиент ────────────────────────────────────────────────
-
-export type ServerEvent =
-  | { event: 'joined'; tournament_id: number }
-  | { event: 'tournament:start'; players: PlayerInfo[]; round_count: number }
-  | {
-      event: 'round:start';
-      round: number;
-      round_id: number;
-      question: QuestionPayload;
-      duration: number;
-      started_at: string; // ISO
-    }
-  | { event: 'player:answered'; telegram_id: number }
-  | {
-      event: 'round:end';
-      correct_answer: number;
-      unit: string;
-      source_url: string;
-      player_results: PlayerResultPayload[];
-      leaderboard: LeaderboardPayload[];
-    }
-  | { event: 'tournament:end'; leaderboard: FinalLeaderboardPayload[] }
-  | { event: 'error'; code: string; message: string }
-  | { event: 'pong' };
+// Контракт WebSocket-событий для Doton — дуэли connect-the-dots.
 
 // ── Клиент → Сервер ────────────────────────────────────────────────
 
-export type ClientMessage =
-  | { event: 'join'; tournament_id: number; telegram_id: number; init_data: string }
-  | { event: 'answer'; round_id: number; value: number }
-  | { event: 'ping' };
+export interface FindDuelEvent {
+  event: 'find_duel';
+  telegram_id: number;
+  username: string;
+  init_data: string;
+}
+
+export interface CancelSearchEvent {
+  event: 'cancel_search';
+}
+
+export interface ScoreUpdateEvent {
+  event: 'score_update';
+  score: number;
+}
+
+export interface ClientDuelFinishedEvent {
+  event: 'duel_finished';
+  final_score: number;
+}
+
+export interface PingEvent {
+  event: 'ping';
+}
+
+export type ClientEvent =
+  | FindDuelEvent
+  | CancelSearchEvent
+  | ScoreUpdateEvent
+  | ClientDuelFinishedEvent
+  | PingEvent;
+
+// ── Сервер → Клиент ────────────────────────────────────────────────
+
+export interface DuelSearchingEvent {
+  event: 'duel:searching';
+}
+
+export interface DuelFoundEvent {
+  event: 'duel:found';
+  opponent: { username: string; telegram_id: number };
+  duel_id: number;
+}
+
+export interface DuelStartEvent {
+  event: 'duel:start';
+  seed: number;
+  duration: number; // seconds
+}
+
+export interface DuelOpponentScoreEvent {
+  event: 'duel:opponent_score';
+  score: number;
+}
+
+export interface DuelEndEvent {
+  event: 'duel:end';
+  winner_telegram_id: number | null; // null = draw
+  your_score: number;
+  opponent_score: number;
+  opponent_username: string;
+}
+
+export interface ErrorEvent {
+  event: 'error';
+  code: string;
+  message: string;
+}
+
+export interface PongEvent {
+  event: 'pong';
+}
+
+export type ServerEvent =
+  | DuelSearchingEvent
+  | DuelFoundEvent
+  | DuelStartEvent
+  | DuelOpponentScoreEvent
+  | DuelEndEvent
+  | ErrorEvent
+  | PongEvent;
