@@ -1,0 +1,56 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #0a0e1a;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 300;
+  color: #e8eaf0;
+  margin: 0 0 30px;
+}
+
+.opponent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6b7bf7, #8b9bff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 4px 20px rgba(107,123,247,0.4);
+}
+
+.name {
+  font-size: 18px;
+  color: #e8eaf0;
+  font-weight: 400;
+}
+
+.countdown {
+  font-size: 72px;
+  font-weight: 200;
+  color: #6b7bf7;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}

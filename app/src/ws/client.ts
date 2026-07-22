@@ -1,5 +1,4 @@
-// WebSocket-клиент: автопереподключение с exponential backoff (1s, 2s, 4s … 30s),
-// очередь исходящих сообщений на время разрыва, ping каждые 30с.
+// WebSocket client with auto-reconnection (exponential backoff 1s..30s) and ping/pong.
 
 import type { ClientMessage, ConnectionStatus, ServerEvent } from './types.js';
 
@@ -23,6 +22,10 @@ export class GameSocket {
 
   constructor(url: string) {
     this.url = url;
+  }
+
+  get readyState(): number {
+    return this.ws?.readyState ?? WebSocket.CLOSED;
   }
 
   connect(): void {

@@ -1,71 +1,80 @@
-// Контракт WebSocket-событий (клиентская сторона). Зеркалит server/src/ws/events.ts.
+// Game phases
+export type Phase = 'menu' | 'searching' | 'found' | 'playing' | 'finished';
 
-export interface Player {
-  telegram_id: number;
-  username: string | null;
-  total_score: number;
+// Server events
+export interface DuelSearchingEvent {
+  event: 'duel:searching';
 }
 
-export interface Question {
-  text: string;
-  unit: string;
-  range_min: number;
-  range_max: number;
-  category: string;
+export interface DuelFoundEvent {
+  event: 'duel:found';
+  opponent: { username: string; telegram_id: number };
+  duel_id: number;
 }
 
-export interface LeaderboardEntry {
-  telegram_id: number;
-  total_score: number;
-  rank: number;
+export interface DuelStartEvent {
+  event: 'duel:start';
+  seed: number;
+  duration: number;
 }
 
-export interface FinalLeaderboardEntry extends LeaderboardEntry {
-  payout: number;
+export interface DuelOpponentScoreEvent {
+  event: 'duel:opponent_score';
+  score: number;
 }
 
-export interface PlayerResult {
-  telegram_id: number;
-  value: number;
-  points: number;
-  error_pct: number;
+export interface DuelEndEvent {
+  event: 'duel:end';
+  winner_telegram_id: number | null;
+  your_score: number;
+  opponent_score: number;
+  opponent_username: string;
 }
 
-// ── Сервер → Клиент ────────────────────────────────────────────────
+export interface ErrorEvent {
+  event: 'error';
+  code: string;
+  message: string;
+}
+
+export interface PongEvent {
+  event: 'pong';
+}
 
 export type ServerEvent =
-  | { event: 'joined'; tournament_id: number }
-  | {
-      event: 'tournament:start';
-      players: Array<{ telegram_id: number; username: string | null }>;
-      round_count: number;
-    }
-  | {
-      event: 'round:start';
-      round: number;
-      round_id: number;
-      question: Question;
-      duration: number;
-      started_at: string; // ISO
-    }
-  | { event: 'player:answered'; telegram_id: number }
-  | {
-      event: 'round:end';
-      correct_answer: number;
-      unit: string;
-      source_url: string;
-      player_results: PlayerResult[];
-      leaderboard: LeaderboardEntry[];
-    }
-  | { event: 'tournament:end'; leaderboard: FinalLeaderboardEntry[] }
-  | { event: 'error'; code: string; message: string }
-  | { event: 'pong' };
+  | DuelSearchingEvent
+  | DuelFoundEvent
+  | DuelStartEvent
+  | DuelOpponentScoreEvent
+  | DuelEndEvent
+  | ErrorEvent
+  | PongEvent;
 
-// ── Клиент → Сервер ────────────────────────────────────────────────
-
+// Client events
 export type ClientMessage =
-  | { event: 'join'; tournament_id: number; telegram_id: number; init_data: string }
-  | { event: 'answer'; round_id: number; value: number }
+  | { event: 'find_duel'; telegram_id: number; username: string; init_data: string }
+  | { event: 'cancel_search' }
+  | { event: 'score_update'; score: number }
+  | { event: 'duel_finished'; final_score: number }
   | { event: 'ping' };
 
 export type ConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
+
+// Game state
+export interface DuelState {
+  phase: Phase;
+  telegramId: number;
+  username: string;
+  duelId: number | null;
+  seed: number | null;
+  duration: number;
+  opponent: { username: string; telegram_id: number } | null;
+  myScore: number;
+  opponentScore: number;
+  result: {
+    winnerTelegramId: number | null;
+    yourScore: number;
+    opponentScore: number;
+    opponentUsername: string;
+  } | null;
+}

@@ -1,0 +1,79 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.title {
+  font-size: 48px;
+  font-weight: 300;
+  margin: 0 0 10px;
+  letter-spacing: 1px;
+}
+
+.winner { color: #5ce1b8; }
+.loser { color: #ea6b6b; }
+.draw { color: #ffd700; }
+
+.subtitle {
+  font-size: 16px;
+  color: #8b92a8;
+  margin: 0 0 40px;
+  font-weight: 300;
+}
+
+.scores {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 50px;
+}
+
+.scoreBlock { text-align: center; }
+
+.scoreLabel {
+  font-size: 14px;
+  color: #8b92a8;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.scoreNumber {
+  font-size: 48px;
+  font-weight: 200;
+  color: #e8eaf0;
+  letter-spacing: -2px;
+}
+
+.winnerScore {
+  color: #5ce1b8;
+  text-shadow: 0 0 30px rgba(92, 225, 184, 0.4);
+}
+
+.vs {
+  font-size: 20px;
+  color: #8b92a8;
+  font-weight: 300;
+}
+
+.playAgainBtn {
+  background: #6b7bf7;
+  color: white;
+  border: none;
+  padding: 18px 50px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 6px 20px rgba(107,123,247,0.4);
+  letter-spacing: 1px;
+}
+
+.playAgainBtn:active {
+  transform: scale(0.97);
+}

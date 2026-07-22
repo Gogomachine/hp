@@ -1,4 +1,4 @@
-// Типизированный доступ к Telegram WebApp SDK (скрипт подключён в index.html).
+// Typed access to the Telegram WebApp SDK (script loaded in index.html).
 
 interface TelegramUser {
   id: number;
@@ -26,22 +26,6 @@ export function getWebApp(): TelegramWebApp | null {
   return window.Telegram?.WebApp ?? null;
 }
 
-// Инициализация SDK до рендера: разворачиваем на весь экран, фиксируем цвета.
-export function initTelegram(): void {
-  const tg = getWebApp();
-  if (tg === null) {
-    return;
-  }
-  try {
-    tg.ready();
-    tg.expand();
-    tg.setHeaderColor('#13131a');
-    tg.setBackgroundColor('#13131a');
-  } catch (err) {
-    console.error('[telegram] init failed', err);
-  }
-}
-
 export function getInitData(): string {
   return getWebApp()?.initData ?? '';
 }
@@ -49,3 +33,6 @@ export function getInitData(): string {
 export function getCurrentUser(): TelegramUser | null {
   return getWebApp()?.initDataUnsafe.user ?? null;
 }
+
+// Alias for backward-compat
+export const getTelegramUser = getCurrentUser;

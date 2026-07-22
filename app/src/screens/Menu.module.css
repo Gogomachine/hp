@@ -1,0 +1,65 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #0a0e1a;
+}
+
+.logo {
+  width: 160px;
+  height: 160px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  padding: 18px;
+  background: #12182b;
+  border-radius: 32px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4), 0 0 60px rgba(107,123,247,0.2);
+  margin-bottom: 32px;
+}
+
+.logoDot {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.title {
+  font-size: 48px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  color: #e8eaf0;
+  margin: 0 0 12px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #8b92a8;
+  margin: 0 0 40px;
+  font-weight: 300;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.duelBtn {
+  background: #6b7bf7;
+  color: white;
+  border: none;
+  padding: 18px 50px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 6px 20px rgba(107,123,247,0.4);
+  letter-spacing: 1px;
+}
+
+.duelBtn:active {
+  transform: scale(0.97);
+}
