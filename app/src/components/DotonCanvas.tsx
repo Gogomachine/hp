@@ -178,7 +178,7 @@ export function DotonCanvas({ seed, onScoreChange, disabled }: Props) {
       if (cell) {
         s.chain.push(cell);
         s.chainSet.add(`${cell.r},${cell.c}`);
-        if (isTouch && navigator.vibrate) navigator.vibrate(8);
+        if (isTouch && navigator.vibrate) navigator.vibrate(4);
       }
       s.lastPos = p;
     };
@@ -200,7 +200,7 @@ export function DotonCanvas({ seed, onScoreChange, disabled }: Props) {
         ) {
           s.chain.push(cell);
           s.chainSet.add(`${cell.r},${cell.c}`);
-          if (isTouch && navigator.vibrate) navigator.vibrate(5);
+          if (isTouch && navigator.vibrate) navigator.vibrate(3);
         }
       }
     };
@@ -327,10 +327,10 @@ function processChain(s: GameInternals, onScoreChange: (score: number) => void) 
   }
 
   if (navigator.vibrate) {
-    if (chainLength >= 10) navigator.vibrate([80, 40, 80, 40, 60]);
-    else if (chainLength >= 7) navigator.vibrate([30, 10, 30]);
-    else if (chainLength >= 4) navigator.vibrate(20);
-    else navigator.vibrate(10);
+    if (chainLength >= 10) navigator.vibrate([40, 20, 40, 20, 30]);
+    else if (chainLength >= 7) navigator.vibrate([15, 8, 15]);
+    else if (chainLength >= 4) navigator.vibrate(10);
+    else navigator.vibrate(5);
   }
 
   for (const c of s.chain) {
